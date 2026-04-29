@@ -54,18 +54,18 @@ def check_assets():
 def warc_download(files_list):
     os.makedirs(WARC_PATH, exist_ok=True)
     threads = []
-    def download(desc, link, loc):
+    def download(desc, link, loc, index):
         r = requests.get(link, stream=True)
         r.raise_for_status()
         total = int(r.headers.get('content-length', 0))
-        with open(loc, 'wb') as f, tqdm.tqdm(desc=desc, total=total, unit='B', unit_scale=True) as pb:
+        with open(loc, 'wb') as f, tqdm.tqdm(desc=desc, total=total, unit='B', unit_scale=True, position=index, leave=True) as pb:
             for chunk in r.iter_content(1024):
                 if chunk:
                     f.write(chunk)
                     pb.update(len(chunk))
-    for f_dict in files_list:
+    for i, f_dict in enumerate(files_list):
         loc = os.path.join(WARC_PATH, f_dict["filename"])
-        t = threading.Thread(target=download, args=(f" * {f_dict['filename']}", BASE_URL + f_dict["filename"], loc))
+        t = threading.Thread(target=download, args=(f" * {f_dict['filename']}", BASE_URL + f_dict["filename"], loc, i))
         t.start()
         threads.append(t)
     for t in threads: t.join()
