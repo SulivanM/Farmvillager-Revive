@@ -1,0 +1,83 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ "main", "master" ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: farmvillager-revive-linux
+            separator: ':'
+          - os: windows-latest
+            artifact_name: farmvillager-revive-windows
+            separator: ';'
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+
+    - name: Build with PyInstaller
+      run: |
+        pyinstaller --onedir --console --noupx --noconfirm --add-data "patched${{ matrix.separator }}patched" --add-data "templates${{ matrix.separator }}templates" --add-data "villages${{ matrix.separator }}villages" --add-data "xml${{ matrix.separator }}xml" --add-data "embeds${{ matrix.separator }}embeds" --add-data "assethash${{ matrix.separator }}assethash" --contents-directory "bundle" --hidden-import cpyamf --hidden-import pyamf.amf0 --hidden-import pyamf.amf3 --icon=build/icon.ico --name farmvillager-revive server.py
+
+    - name: Zip build (Windows)
+      if: matrix.os == 'windows-latest'
+      run: Compress-Archive -Path dist/farmvillager-revive/* -DestinationPath ${{ matrix.artifact_name }}.zip
+
+    - name: Zip build (Linux)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        cd dist/farmvillager-revive
+        zip -r ../../${{ matrix.artifact_name }}.zip .
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.artifact_name }}
+        path: ${{ matrix.artifact_name }}.zip
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display structure of downloaded files
+        run: ls -R artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/farmvillager-revive-windows/farmvillager-revive-windows.zip
+            artifacts/farmvillager-revive-linux/farmvillager-revive-linux.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
