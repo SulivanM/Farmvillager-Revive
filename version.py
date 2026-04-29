@@ -1,4 +1,4 @@
-version_code = "1.1"
+version_code = "1.2"
 version_name = f"Revive {version_code}"
 
 def migrate_loaded_save(save):

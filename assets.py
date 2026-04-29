@@ -4,6 +4,11 @@ import shutil
 import threading
 import requests
 import tqdm
+try:
+    import colorama
+    colorama.init()
+except ImportError:
+    pass
 import hashlib
 from bundle import ASSETS_DIR, TMP_DIR
 from warc_extractor.warc_extractor import _main_interface
